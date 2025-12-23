@@ -10,9 +10,9 @@ Traffic Visualization
 
 Micro Segmentation
 
-| 127         | 126            | 125-124         | 123-108 | 107-92  | 91-90   | 89-88   | 87-60      | 59-32        | 31-4 |  3-0   |
-| work policy | monitor policy | encoding scheme | reply   | origin  | reply   | origin  | work mode  | monitor mode |      | round  |
-| action drop | action drop    | (0x11)          | in_port | in_port | source  | source  | flow id    | flow id      |      | number |
+| 127         | 126            | 125-124         | 123-108 | 107-92  | 91-90   | 89-88   | 87-60      | 59-32        | 31-6 | 5                | 4                | 3-0    |
+| work policy | monitor policy | encoding scheme | reply   | origin  | reply   | origin  | work mode  | monitor mode |      | source work mode | target work mode | round  |
+| action drop | action drop    | (0x11)          | in_port | in_port | source  | source  | flow id    | flow id      |      | action drop      | action drop      | number |
 
 */
 
@@ -61,18 +61,20 @@ type DecodedTrafficVisualizationConntrackLabels struct {
 }
 
 type DecodedMicroSegmentationConntrackLabels struct {
-	RoundNumber             uint8          `json:"round_number"`          // 4 bits
-	MonitorFlowSequence     uint32         `json:"monitor_flow_sequence"` // 28 bits
-	MonitorFlowID           uint32         `json:"monitor_flow_id"`       // Equals to MonitorFlowSequence | RoundNumber << 28
-	WorkFlowSequence        uint32         `json:"work_flow_sequence"`    // 28 bits
-	WorkFlowID              uint32         `json:"work_flow_id"`          // Equals to WorkFlowSequence | RoundNumber << 28
-	OriginPacketSource      PacketSource   `json:"origin_packet_source"`  // 2 bits
-	ReplyPacketSource       PacketSource   `json:"reply_packet_source"`   // 2 bits
-	OriginInport            uint16         `json:"origin_inport"`
-	ReplyInport             uint16         `json:"reply_inport"`
-	EncodingScheme          EncodingScheme `json:"encoding_scheme"`
-	MonitorPolicyActionDrop bool           `json:"monitor_policy_action_drop"`
-	WorkPolicyActionDrop    bool           `json:"work_policy_action_drop"`
+	RoundNumber              uint8          `json:"round_number"`                 // 4 bits
+	TargetWorkModeActionDrop bool           `json:"target_work_mode_action_drop"` // 1 bit
+	SourceWorkModeActionDrop bool           `json:"source_work_mode_action_drop"` // 1 bit
+	MonitorFlowSequence      uint32         `json:"monitor_flow_sequence"`        // 28 bits
+	MonitorFlowID            uint32         `json:"monitor_flow_id"`              // Equals to MonitorFlowSequence | RoundNumber << 28
+	WorkFlowSequence         uint32         `json:"work_flow_sequence"`           // 28 bits
+	WorkFlowID               uint32         `json:"work_flow_id"`                 // Equals to WorkFlowSequence | RoundNumber << 28
+	OriginPacketSource       PacketSource   `json:"origin_packet_source"`         // 2 bits
+	ReplyPacketSource        PacketSource   `json:"reply_packet_source"`          // 2 bits
+	OriginInport             uint16         `json:"origin_inport"`
+	ReplyInport              uint16         `json:"reply_inport"`
+	EncodingScheme           EncodingScheme `json:"encoding_scheme"`
+	MonitorPolicyActionDrop  bool           `json:"monitor_policy_action_drop"`
+	WorkPolicyActionDrop     bool           `json:"work_policy_action_drop"`
 }
 
 // Mask for the conntrack labels
@@ -112,18 +114,24 @@ var (
 	// Encoding Scheme here 125-124
 	// ReplyInportMask  here 123-108
 	// OriginInportMask here 107-92
-	ReplyPacketSourceLength     = uint8(2)
-	ReplyPacketSourceShift      = uint8(90)
-	ReplyPacketSourceMask       = numeric.Mask(ReplyPacketSourceLength).ShiftLeft(ReplyPacketSourceShift)
-	OriginPacketSourceLength    = uint8(2)
-	OriginPacketSourceShift     = uint8(88)
-	OriginPacketSourceMask      = numeric.Mask(OriginPacketSourceLength).ShiftLeft(OriginPacketSourceShift)
-	WorkPolicySequenceLength    = uint8(28)
-	WorkPolicySequenceShift     = uint8(60)
-	WorkPolicySequenceMask      = numeric.Mask(WorkPolicySequenceLength).ShiftLeft(WorkPolicySequenceShift)
-	MonitorPolicySequenceLength = uint8(28)
-	MonitorPolicySequenceShift  = uint8(32)
-	MonitorPolicySequenceMask   = numeric.Mask(MonitorPolicySequenceLength).ShiftLeft(MonitorPolicySequenceShift)
+	ReplyPacketSourceLength        = uint8(2)
+	ReplyPacketSourceShift         = uint8(90)
+	ReplyPacketSourceMask          = numeric.Mask(ReplyPacketSourceLength).ShiftLeft(ReplyPacketSourceShift)
+	OriginPacketSourceLength       = uint8(2)
+	OriginPacketSourceShift        = uint8(88)
+	OriginPacketSourceMask         = numeric.Mask(OriginPacketSourceLength).ShiftLeft(OriginPacketSourceShift)
+	WorkPolicySequenceLength       = uint8(28)
+	WorkPolicySequenceShift        = uint8(60)
+	WorkPolicySequenceMask         = numeric.Mask(WorkPolicySequenceLength).ShiftLeft(WorkPolicySequenceShift)
+	MonitorPolicySequenceLength    = uint8(28)
+	MonitorPolicySequenceShift     = uint8(32)
+	MonitorPolicySequenceMask      = numeric.Mask(MonitorPolicySequenceLength).ShiftLeft(MonitorPolicySequenceShift)
+	SourceWorkModeActionDropLength = uint8(1)
+	SourceWorkModeActionDropShift  = uint8(5)
+	SourceWorkModeActionDropMask   = numeric.Mask(SourceWorkModeActionDropLength).ShiftLeft(SourceWorkModeActionDropShift)
+	TargetWorkModeActionDropLength = uint8(1)
+	TargetWorkModeActionDropShift  = uint8(4)
+	TargetWorkModeActionDropMask   = numeric.Mask(TargetWorkModeActionDropLength).ShiftLeft(TargetWorkModeActionDropShift)
 	// round number here 3-0
 )
 
@@ -192,6 +200,8 @@ func DecodeMicroSegmentation(labels numeric.Uint128) (DecodedMicroSegmentationCo
 	decoded := DecodedMicroSegmentationConntrackLabels{}
 
 	decoded.RoundNumber = uint8(labels.And(RoundNumberMask).ShiftRight(RoundNumberShift).Low)
+	decoded.TargetWorkModeActionDrop = labels.And(TargetWorkModeActionDropMask).ShiftRight(TargetWorkModeActionDropShift).Low != 0
+	decoded.SourceWorkModeActionDrop = labels.And(SourceWorkModeActionDropMask).ShiftRight(SourceWorkModeActionDropShift).Low != 0
 	decoded.MonitorFlowSequence = uint32(labels.And(MonitorPolicySequenceMask).ShiftRight(MonitorPolicySequenceShift).Low)
 	if decoded.MonitorFlowSequence != 0 {
 		decoded.MonitorFlowID = decoded.MonitorFlowSequence | (uint32(decoded.RoundNumber) << MonitorPolicySequenceLength)
