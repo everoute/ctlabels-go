@@ -1,6 +1,11 @@
 .github/
 bin/
-build/
+build/*
+!build/images
+build/images/*
+!build/images/unit-test
+build/images/unit-test/*
+!build/images/unit-test/docker-entrypoint.sh
 .idea/
 .commitlintrc.json
 .gitignore

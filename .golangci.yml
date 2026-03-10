@@ -3,8 +3,6 @@ linters-settings:
     # [deprecated] comma-separated list of pairs of the form pkg:regex
     # the regex is used to ignore names within pkg. (default "fmt:.*").
     ignore: fmt:.*,io/ioutil:^Read.*,io:Close
-  lll:
-    line-length: 170
   funlen:
     lines: 100
     statements: 80
@@ -39,7 +37,6 @@ linters:
     - gosimple
     - govet
     - ineffassign
-    - lll
     - misspell
     - nakedret
     - noctx
