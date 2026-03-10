@@ -24,6 +24,8 @@ func TestDecodeMicroSegmentation(t *testing.T) {
 		RoundNumber:              0b1011,
 		TargetWorkModeActionDrop: true,
 		SourceWorkModeActionDrop: true,
+		EgressTreated:            false,
+		IngressTreated:           false,
 		MonitorFlowSequence:      0b1000000000000001000011100001,
 		MonitorFlowID:            0b1011_1000000000000001000011100001,
 		WorkFlowSequence:         0b1000000000000000001010100111,
@@ -39,6 +41,32 @@ func TestDecodeMicroSegmentation(t *testing.T) {
 	expectJson, err := json.Marshal(expected)
 	Expect(err).Should(Succeed())
 	Expect(jsonStr).Should(Equal(expectJson))
+}
+
+// TestDecodeMicroSegmentation_EgressTreated verifies EgressTreated (bit 6 in low 32 bits) is decoded.
+func TestDecodeMicroSegmentation_EgressTreated(t *testing.T) {
+	RegisterTestingT(t)
+	// Same as TestDecodeMicroSegmentation but low byte 0x7b (bit 6 set) instead of 0x3b
+	labelsStr := "0x70001000ae80002a780010e10000007b"
+	labels := ctlabels.CTLabelsStrToLittleEndianBytes(labelsStr)
+	Expect(labels).ShouldNot(BeNil())
+	decoded, err := ctlabels.DecodeMicroSegmentation(numeric.Uint128FromLittleEndianBytes(labels))
+	Expect(err).Should(BeNil())
+	Expect(decoded.EgressTreated).Should(BeTrue())
+	Expect(decoded.IngressTreated).Should(BeFalse())
+}
+
+// TestDecodeMicroSegmentation_IngressTreated verifies IngressTreated (bit 7 in low 32 bits) is decoded.
+func TestDecodeMicroSegmentation_IngressTreated(t *testing.T) {
+	RegisterTestingT(t)
+	// Same as TestDecodeMicroSegmentation but low byte 0xbb (bit 7 set) instead of 0x3b
+	labelsStr := "0x70001000ae80002a780010e1000000bb"
+	labels := ctlabels.CTLabelsStrToLittleEndianBytes(labelsStr)
+	Expect(labels).ShouldNot(BeNil())
+	decoded, err := ctlabels.DecodeMicroSegmentation(numeric.Uint128FromLittleEndianBytes(labels))
+	Expect(err).Should(BeNil())
+	Expect(decoded.EgressTreated).Should(BeFalse())
+	Expect(decoded.IngressTreated).Should(BeTrue())
 }
 
 func TestDecodeTrafficVisualization(t *testing.T) {
